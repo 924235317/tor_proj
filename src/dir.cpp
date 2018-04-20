@@ -15,6 +15,7 @@
 
 
 //-------------------data struct---------------------------
+//delay info struct
 typedef struct 
 {
     std::string id;
@@ -23,7 +24,12 @@ typedef struct
     double memory_used;
 }delay_info_t;
 
-//-------------------zmq---------------------------
+//-----------------------zmq-------------------------------
+/**
+*@brief: bind socket to local port
+*@param[in] - socket: socket to bind
+*@param[in] - port: local port 
+**/
 void bind_local_address(void* socket, char *port) 
 {
     char addr[32] = {0};
@@ -35,6 +41,12 @@ void bind_local_address(void* socket, char *port)
     assert (rc == 0);
 }
 
+/**
+*@brief: send message to one zmq routers
+*@param[in] - socket: socekt
+*@param[in] - socket_id: router id to send information
+*@param[out] - msg: informationg to be sent
+**/
 void send_to_one(void *socket, std::string socket_id, const char *msg)
 {
     zmq_send(socket, socket_id.c_str(), 
@@ -43,6 +55,12 @@ void send_to_one(void *socket, std::string socket_id, const char *msg)
              strlen(msg), 0);
 }
 
+/**
+*@brief: send message to all zmq routers in list
+*@param[in] - socket: socekt
+*@param[in] - socket_id_list: router id list to send information
+*@param[out] - msg: information to be sent
+**/
 void send_to_all(void *socket, std::queue<std::string> socket_id_list, char *msg) 
 {
     while(!socket_id_list.empty())
@@ -53,6 +71,13 @@ void send_to_all(void *socket, std::queue<std::string> socket_id_list, char *msg
     }
 }
 
+/**
+*@brief: send request to all delays in the weight list
+*@param[in] - delay_weight_list: dictionary contains delays' id and weights
+*@param[in] - socket: socekt
+*@param[out] - msg: information to be sent
+*@param[out] - num: number of delays in the list
+**/
 void send_request_to_delays(std::map<std::string, double> delay_weight_list, 
                             void *socket, char *msg, int &num) 
 {
@@ -66,6 +91,12 @@ void send_request_to_delays(std::map<std::string, double> delay_weight_list,
     sleep(1);
 }
 
+/**
+*@brief: recieve message from one router
+*@param[in] - socket: socekt
+*@param[out] - socket_id: socket id that recieved message
+*@param[out] - message: recieved information 
+**/
 void recieve_from_one(void *socket, std::string &socket_id, 
                       std::string &message)
 {
@@ -79,8 +110,8 @@ void recieve_from_one(void *socket, std::string &socket_id,
 
 //-------------------json---------------------------
 /**
-*@brief: extract info from json string
-*@param[out] - buf: system info 
+*@brief: extract info from json to string
+*@param[out] - buffer: system info 
 */
 void json_to_string(char *buffer) 
 {    
@@ -88,6 +119,7 @@ void json_to_string(char *buffer)
     json_t *msg_rev;        
     const char *key;
     json_t *value;
+
     msg_rev = json_loadb(buffer, strlen(buffer), 0, &error);
     json_object_foreach(msg_rev, key, value) {
         printf("%s %s\n", key, json_string_value(value));
@@ -95,7 +127,12 @@ void json_to_string(char *buffer)
     }
 }
 
-
+/**
+*@brief: load configure file, may be dir info file or delay info file
+*@param[in] - file_name: file path
+*@param[out] - array: json object 
+*@reval - error: -1 success: 0
+*/
 int load_json_config_file(char *file_name, json_t *(&array)) 
 {
     json_error_t error;
@@ -109,8 +146,13 @@ int load_json_config_file(char *file_name, json_t *(&array))
 }
 
 
+/**
+*@brief: init a map with delay-info-list-file 
+*@param[out] - delat_list: delay-info-list-file's path
+*@param[in] - file_path: delay-info file path
+*/
 void init_delay_list_with_config_file(std::map<std::string, double> &delay_list,
-                                     char *file_path)
+                                      char *file_path)
 {
     json_t *info_array;
     load_json_config_file(file_path, info_array);
@@ -120,12 +162,17 @@ void init_delay_list_with_config_file(std::map<std::string, double> &delay_list,
         
 		json_t *name_obj = json_object_get(info, "name");
         const char *name = json_string_value(name_obj);
-		//printf("client name: %s, len: %d\n", name, strlen(name));
         std::string name_str = std::string(name);
         delay_list[name_str] = 0;
     }          
 }
 
+/**
+*@brief: get delay_info from recieved message contains delays' name, 
+         rate and etc.
+*@param[out] - delay_info: structure with delay status information
+*@param[in] - message: delay-info string recieved from delays
+*/
 void get_delay_info(delay_info_t &delay_info, std::string message)
 {
     json_error_t error;
@@ -148,7 +195,12 @@ void get_delay_info(delay_info_t &delay_info, std::string message)
     }
 }
 
-double get_delay_weight(delay_info_t delay_info)
+/**
+*@brief: compute weights of delay with delay's status information 
+*@param[in] - delay status information
+*@reval - delay's weight
+*/
+double compute_delay_weight(delay_info_t delay_info)
 {
     double cpu_rate = delay_info.cpu_rate;
     double mem_total = delay_info.memory_total;
@@ -157,10 +209,15 @@ double get_delay_weight(delay_info_t delay_info)
     return weight;
 }
 
+
+/**
+*@brief: 
+*@param[in] - delay_weight_list: list contains delays' weights 
+*@param[out] - message: replay message to tor master
+*/
 void get_delay_weight_string_from_list(std::map<std::string, double> delay_weight_list, 
                                        std::string &message)
 {
-    
     std::map<std::string, double>::iterator it;
     json_t *delay_weight_array = json_array();
     for(it = delay_weight_list.begin(); it != delay_weight_list.end(); ++it)
@@ -174,10 +231,9 @@ void get_delay_weight_string_from_list(std::map<std::string, double> delay_weigh
         }
         err = json_object_set(delay_weight, "weight", json_real(it->second));
         if(err == -1) 
-        {
+		{ 
             fprintf(stderr, "[ERROR] Set Weight FAILED!\n");
         }
-
         err = json_array_append_new(delay_weight_array, delay_weight);
         if(err == -1) 
         {
@@ -190,6 +246,7 @@ void get_delay_weight_string_from_list(std::map<std::string, double> delay_weigh
     if (size == 0)
         return;
     size = json_dumpb(delay_weight_array, msg, size, 0);
+	//printf("send: %s\n", msg);
     message.assign(msg);
     json_decref(delay_weight_array);
 }
@@ -224,8 +281,8 @@ void dump_delay_info_t(delay_info_t &info)
 int main (int argc, char *argv[]) {
     srand((unsigned)time(NULL));
     
-    if (argc != 4) {
-        fprintf(stderr, "Usage: %s /name/ /port/to/delay /port/to/dir\n", argv[0]);
+    if (argc != 5) {
+        fprintf(stderr, "Usage: %s /self/name/ /port/to/delay /port/to/tor_master /path/to/delay_list\n", argv[0]);
         return -1;
     }
     
@@ -233,6 +290,7 @@ int main (int argc, char *argv[]) {
     char *name = argv[1];
     char *port_to_delay = argv[2];
     char *port_to_dir = argv[3];
+	char *path_to_delay_list = argv[4];
     
     //zmq init
     void *context = zmq_ctx_new ();
@@ -250,22 +308,27 @@ int main (int argc, char *argv[]) {
     };
     sleep(2);
     printf("Dir server init ok!, my name: %s\n", name);
+    //----------------------init the context done------------------------------ 
 	
+
     //----------------load config file and init delay map---------------------- 
-    //load json config file
-    //delay info list stored nickname and weights---------------------
+   
+    //load json config file - delay info list stored nickname and weights
     std::map< std::string, double> delay_weight_list;
      
-    init_delay_list_with_config_file(delay_weight_list, "./test.json");
-    /*for(std::map<std::string, double>::iterator it = delay_weight_list.begin();
+    init_delay_list_with_config_file(delay_weight_list, path_to_delay_list);
+    //
+	/*for(std::map<std::string, double>::iterator it = delay_weight_list.begin();
        it != delay_weight_list.end(); ++it) {
            std::cout << "node: " << it->first;
            std::cout << "-> weights: " << it->second;
            std::cout << std::endl;
     }*/
     int delay_nums;
+
     //collect delays' info when the server setup
-    send_request_to_delays(delay_weight_list, router_to_delay, 
+    send_request_to_delays(delay_weight_list, 
+						   router_to_delay, 
                            "hehe", delay_nums);
 
     //-----------------wait for reply--------------------------
@@ -278,22 +341,25 @@ int main (int argc, char *argv[]) {
         now_time = clock();
         if (time_difference(last_time, now_time) > 0.05)
         {
-            send_request_to_delays(delay_weight_list, router_to_delay, 
+            send_request_to_delays(delay_weight_list, 
+			                       router_to_delay, 
                                    "hehe", delay_nums);
             last_time = now_time;
         }
         
-        //send weight info to dirs
+        //send weights info to all dirs need
         while(!dir_list.empty())
         {
             std::string id = dir_list.front();
             std::string message;
-            get_delay_weight_string_from_list(delay_weight_list, message);
-            send_to_one(router_to_dir, id.c_str(), message.c_str());
+            get_delay_weight_string_from_list(delay_weight_list, 
+											  message);
+            send_to_one(router_to_dir, id.c_str(), 
+			            message.c_str());
             dir_list.pop();
         }
 
-        //reply from delays
+        //get reply from delays
         zmq_poll (router_item, 2, 10);
         if (router_item[0].revents & ZMQ_POLLIN) 
         {
@@ -305,11 +371,11 @@ int main (int argc, char *argv[]) {
             get_delay_info(info, message);
             dump_delay_info_t(info);
             
-            double weight = get_delay_weight(info);
+            double weight = compute_delay_weight(info);
             delay_weight_list[socket_id] = weight;
         }
         
-        //recieve request from dir
+        //recieve request from tor-master
         if (router_item[1].revents & ZMQ_POLLIN) 
         {
             std::string socket_id;
@@ -318,7 +384,6 @@ int main (int argc, char *argv[]) {
             recieve_from_one(router_to_dir, socket_id, message);
             dir_list.push(socket_id);
         }
-
     }
     zmq_close(&router_to_dir);
     zmq_close(&router_to_delay);

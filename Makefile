@@ -13,7 +13,7 @@ TOR_SRC=./src/tor.c
 TOR_OBJ=$(TOR_SRC:.c=.o)
 TOR=./tor
 
-LIBS+=-lzmq  -ljansson 
+LIBS+=-L./ -lzmq  -ljansson 
 LIBS+= -L./lib -pthread -lor -ltor -lor-trunnel -ltorrunner -lcurve25519_donna -lor-crypto -lor-event -lor-ctime -lor-trace -lm #tor
 FLAGS+=-I./include/
 

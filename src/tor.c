@@ -21,13 +21,6 @@ int compare_delay_search(const void *delay, const void **member)
     return strcmp(dly->NickName, mem->NickName);
 }
 
-int compare_delay_sort(const void **a, const void **b)
-{
-    const delay_t *dly_a = *a;
-    const delay_t *dly_b = *b;
-    return strcmp(dly_a->NickName, dly_b->NickName);
-}
-
 void get_delay_weight_from_json(smartlist_t *sl, char *message, int len)
 {
     json_error_t error;
@@ -45,7 +38,7 @@ void get_delay_weight_from_json(smartlist_t *sl, char *message, int len)
 
         smartlist_add(sl, delay);
     }
-    smartlist_sort(sl, compare_delay_sort);
+    //smartlist_sort(sl, compare_delay_sort);
 }
 
 int main (int argc, char *argv[]) {
@@ -91,13 +84,13 @@ int main (int argc, char *argv[]) {
     //foreach every delay
     SMARTLIST_FOREACH_BEGIN(sl, delay_t *, delay)
     {
-        //printf("nickname: %s, weight: %lf\n", delay->NickName, delay->weight);
+        printf("nickname: %s, weight: %lf\n", delay->NickName, delay->weight);
 
     } SMARTLIST_FOREACH_END(delay);
     
     //find the delay
     delay_t *dl = smartlist_bsearch(sl, "A", compare_delay_search);
-    printf("Nickname: %s, weight: %lf\n", dl->NickName, dl->weight);
+    //printf("Nickname: %s, weight: %lf\n", dl->NickName, dl->weight);
     smartlist_free(sl);//may memory leak
     zmq_close (requester);
     zmq_ctx_destroy (context);
